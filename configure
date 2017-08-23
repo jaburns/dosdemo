@@ -8,18 +8,14 @@ install_nasm() {
     mv nasm-2.14rc0 nasm
 }
 
-float_to_byte() {
-    local ret="$(echo "obase=16; (255.0*$1+0.5)/1" | bc)"
-    [[ "${#ret}" -lt 2 ]] && printf 0
-    echo "$ret"
-}
-
 create_sine_table() {
-    for i in {0..255}; do
-        local float_val="$(echo "s($i / 255 * 3.14159265358979)" | bc -l)"
-        float_to_byte "$float_val"
-    done
+    awk 'BEGIN {
+        for (t = 0; t <= 255; t++)
+            printf("%02x\n", 255*sin(3.14159265358979 * t / 256.0) + 0.5);
+    }'
 }
 
 install_nasm
+printf 'Creating sine table "sine.dat"...'
 create_sine_table | xxd -r -p > sine.dat
+echo 'Done!'
