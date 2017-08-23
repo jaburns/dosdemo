@@ -1,10 +1,8 @@
-BITS 16
-ORG 0x100
+bits 16
+org 0x100
 
-REFRESH_RATE EQU 60
-WAIT_SECS EQU 5
-
-sineTable: INCBIN "sine.dat"
+REFRESH_RATE equ 60
+WAIT_SECS equ 5
 
 Start:
     ; Init video
@@ -47,3 +45,5 @@ Start:
         int 0x10
         mov ax, 0x4C00  ; exit with code 0
         int 0x21
+
+sineTable: incbin "sine.dat"
