@@ -4,6 +4,8 @@ ORG 0x100
 REFRESH_RATE EQU 60
 WAIT_SECS EQU 5
 
+sineTable: INCBIN "sine.dat"
+
 Start:
     ; Init video
         mov ax, 0x13   ; set video mode 13h
