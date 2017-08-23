@@ -1,4 +1,4 @@
 @echo off
 
-nasm\nasm.exe main.asm -o game.com
-game.com
+nasm\nasm.exe main.asm -o demo.com
+demo.com
