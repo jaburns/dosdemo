@@ -16,25 +16,33 @@ org 0x100
 
 
 MainLoop:
-        xor ax, ax  ; al: counting angle offset at top of screen
+        xor ax, ax  ; ax: amount to add to cx each row
 
     .topOfLoop:
         call WaitForRetrace
 
-        add al, 3
-
         mov bh, 200 ; bh: counting down rows of screen
-        mov bl, al  ; bl: counting up angle on each screen row
+        mov bl, 0   ; bl: counting up true angle on each screen row. computed from cx
+        xor cx, cx  ; cx: counting up multiple of angle on each screen row
         xor dx, dx  ; dx: video memory offset of current row
         xor di, di  ; di: video memory offset, but incremented by called routines
 
+        add ax, 1
+
         .rowsLoop:
+            add cx, ax
+            push cx
+            shr cx, 6
+            mov bl, cl
+            pop cx
+
+            add bl, bh
+
             call DrawStrip
 
             add dx, 320
             mov di, dx
 
-         ;  inc bl
             dec bh
             jnz .rowsLoop
 
@@ -44,7 +52,6 @@ MainLoop:
 
 
 ; BL <- theta
-; CL <- offset
 ; DI <- vram offset of start of row
 ; DI -> vram offset after drawing
 DrawStrip:
@@ -143,6 +150,6 @@ WaitForRetrace:
         ret
 
 
-frameCounter: dw 60 * 5
+frameCounter: dw 150 ; 60 * 3
 
 sineTable: incbin "sine.dat"
