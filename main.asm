@@ -21,10 +21,10 @@ MainLoop:
     .topOfLoop:
         call WaitForRetrace
 
-        inc al
+        add al, 3
 
         mov bh, 200 ; bh: counting down rows of screen
-        mov bl, al  ; bl: counting up angle
+        mov bl, al  ; bl: counting up angle on each screen row
         xor dx, dx  ; dx: video memory offset of current row
         xor di, di  ; di: video memory offset, but incremented by called routines
 
@@ -34,7 +34,7 @@ MainLoop:
             add dx, 320
             mov di, dx
 
-            inc bl
+         ;  inc bl
             dec bh
             jnz .rowsLoop
 
@@ -43,10 +43,10 @@ MainLoop:
         ret
 
 
-; BL -> theta
-; CL -> offset
-; DI -> vram offset of start of row
-; DI <- vram offset after drawing
+; BL <- theta
+; CL <- offset
+; DI <- vram offset of start of row
+; DI -> vram offset after drawing
 DrawStrip:
         push ax
         push cx
@@ -115,8 +115,8 @@ DrawStrip:
         ret
 
 
-; AL -> theta
-; AL <- sin(theta)
+; AL <- theta
+; AL -> sin(theta)
 GetSine:
         push ax
         xor ah, ah
@@ -143,6 +143,6 @@ WaitForRetrace:
         ret
 
 
-frameCounter: dw 60 * 10
+frameCounter: dw 60 * 5
 
 sineTable: incbin "sine.dat"
