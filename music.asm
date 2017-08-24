@@ -19,7 +19,7 @@ Start:
 
         ; pause for duration of note
         mov     dx, 4560
-        mov     bx, 25
+        mov     bx, 100
     .pause1:
         mov     cx, 65535
     .pause2:
