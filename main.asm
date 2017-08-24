@@ -1,46 +1,121 @@
 bits 16
 org 0x100
 
-; http://faydoc.tripod.com/cpu/
 
-Start:
-        call Setup
-        xor bl, bl   ; cx -> Sine table lookup index
-    .mainLoop:
+        mov ax, 0x13   ; set video mode 13h
+        int 0x10
+        mov ax, 0xA000 ; point ES to video memory
+        mov es, ax
+        xor bx, bx
+
+        call MainLoop
+
+        mov ax, 0x03   ; return to text mode 0x03
+        int 0x10
+        mov ax, 0x4C00 ; exit with code 0
+        int 0x21
+
+
+MainLoop:
+        xor ax, ax  ; al: counting angle offset at top of screen
+
+    .topOfLoop:
         call WaitForRetrace
 
-        inc bl
-        mov al, bl
-        call GetCosine
-        shr al, 4
-        add al, 0x40
-        mov ah, al
-        xor di, di
-        mov cx, 32000
-        rep stosw
+        inc al
+
+        mov bh, 200 ; bh: counting down rows of screen
+        mov bl, al  ; bl: counting up angle
+        xor dx, dx  ; dx: video memory offset of current row
+        xor di, di  ; di: video memory offset, but incremented by called routines
+
+    .rowsLoop:
+            call DrawStrip
+
+            add dx, 320
+            mov di, dx
+
+            inc bl
+            dec bh
+            jnz .rowsLoop
 
         dec word [frameCounter]
-        jnz .mainLoop
-        jmp Exit
-
-
-
-GetSine: ; input al -> output al; clobbers ah
-        mov ah, 0
-        mov si, ax
-        mov al, [sineTable + si]
+        jnz .topOfLoop
         ret
 
-GetCosine: ; same properties as GetSine
-        mov ah, 0
+
+; BL -> theta
+; CL -> offset
+; DI -> vram offset of start of row
+; DI <- vram offset after drawing
+DrawStrip:
+        push ax
+        push bx
+        push cx
+        push dx
+
+    ; get length of first face of column in to bh
+        mov al, bl
+        call GetSine
+        shr al, 2
+        mov bh, al
+
+    ; get length of second face of column in to bl
+        mov al, bl
         add al, 128
+        call GetSine
+        shr al, 2
+        mov bl, al
+
+    ; get length of left empty region in to dh
+        mov dl, bh
+        add dl, bl
+        shr dl, 1
+        mov dh, 120
+        sub dh, dl
+
+    ; draw first empty region
+        xor cx, cx
+        mov cl, dh
+        mov al, 0
+        rep stosb
+
+    ; draw first face
+        mov cl, bh
+        mov al, 0x9
+        rep stosb
+
+    ; draw second face
+        mov cl, bl
+        mov al, 0xA
+        rep stosb
+
+    ; draw more empty space to the right
+        mov cl, 30
+        mov ax, 0
+        rep stosw
+
+        pop dx
+        pop cx
+        pop bx
+        pop ax
+        ret
+
+
+; AL -> theta
+; AL <- sin(theta)
+GetSine:
+        push ax
+        xor ah, ah
         mov si, ax
+        pop ax
         mov al, [sineTable + si]
         ret
 
 
-
-WaitForRetrace:       ; clobbers al, dx
+WaitForRetrace:
+        push ax
+        push dx
         mov dx, 0x03DA
     .waitRetrace:
         in al, dx     ; read from status port
@@ -50,25 +125,11 @@ WaitForRetrace:       ; clobbers al, dx
         in al, dx
         test al, 0x08
         jz .endRefresh
+        pop dx
+        pop ax
         ret
 
 
-
-Setup:
-        mov ax, 0x13   ; set video mode 13h
-        int 0x10
-        mov ax, 0xA000 ; point ES to video memory
-        mov es, ax
-        ret
-
-Exit:
-        mov ax, 0x03   ; return to text mode 0x03
-        int 0x10
-        mov ax, 0x4C00 ; exit with code 0
-        int 0x21
-
-
-
-frameCounter: dw 60 * 5
+frameCounter: dw 60 * 10
 
 sineTable: incbin "sine.dat"
