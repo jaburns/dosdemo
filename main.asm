@@ -92,19 +92,19 @@ DrawStrip:
         push dx
         ja .drawOrderElse
             mov cl, bh
-            mov al, 0x9
+            mov dl, 0x10
             call DrawColChunk
             mov cl, bl
-            mov al, 0xA
+            mov dl, 0x40
             call DrawColChunk
             jmp .drawOrderEnd
 
         .drawOrderElse:
             mov cl, bl
-            mov al, 0xA
+            mov dl, 0x40
             call DrawColChunk
             mov cl, bh
-            mov al, 0x9
+            mov dl, 0x10
             call DrawColChunk
 
         .drawOrderEnd:
@@ -121,12 +121,42 @@ DrawStrip:
         ret
 
 
-; AL <- color
 ; CL <- width of chunk
 ; DH <- y position of chunk
+; DL <- palette offset
 DrawColChunk:
-        ; TODO draw xor texture pixels here instead of memset
-        rep stosb
+        cmp cl, 0
+        jne .notZero
+        ret
+    .notZero:
+        push ax
+        push bx
+        push cx
+
+        ; bl <- amount to increase ah each pixel
+        ; cl <- decremented in the draw loop each pixel, total count of pixels
+        ; ah <- x-pos of xor
+        ; al <- result of xor
+        mov ax, 0xFF
+        div cl
+        mov bl, al
+        xor ah, ah
+
+        .drawLoop:
+            add ah, bl
+            mov al, dh
+            xor al, ah
+
+            shr al, 4
+            add al, dl
+
+            stosb
+            dec cl
+            jnz .drawLoop
+
+        pop cx
+        pop bx
+        pop ax
         ret
 
 
