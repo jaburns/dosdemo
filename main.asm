@@ -130,32 +130,29 @@ DrawColChunk:
         ret
     .notZero:
         push ax
-        push bx
         push cx
+        push dx
 
-        ; bl <- amount to increase ah each pixel
-        ; cl <- decremented in the draw loop each pixel, total count of pixels
-        ; ah <- x-pos of xor
-        ; al <- result of xor
-        mov ax, 0xFF
-        div cl
-        mov bl, al
-        xor ah, ah
+        shr dh, 2
+        mov ch, cl
+        inc ch
 
         .drawLoop:
-            add ah, bl
-            mov al, dh
-            xor al, ah
+            xor ah, ah
+            mov al, cl
+            shl ax, 4
+            div ch
 
-            shr al, 4
+            xor al, dh
+            and al, 0x0F
             add al, dl
 
             stosb
             dec cl
             jnz .drawLoop
 
+        pop dx
         pop cx
-        pop bx
         pop ax
         ret
 
