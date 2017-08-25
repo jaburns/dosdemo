@@ -50,7 +50,7 @@ MainLoop:
         jnz .topOfLoop
         ret
 
-
+; BH <- row count
 ; BL <- theta
 ; DI <- vram offset of start of row
 ; DI -> vram offset after drawing
@@ -93,20 +93,19 @@ DrawStrip:
         ja .drawOrderElse
             mov cl, bh
             mov al, 0x9
-            rep stosb
+            call DrawColChunk
             mov cl, bl
             mov al, 0xA
-            rep stosb
-
+            call DrawColChunk
             jmp .drawOrderEnd
 
         .drawOrderElse:
             mov cl, bl
             mov al, 0xA
-            rep stosb
+            call DrawColChunk
             mov cl, bh
             mov al, 0x9
-            rep stosb
+            call DrawColChunk
 
         .drawOrderEnd:
 
@@ -119,6 +118,15 @@ DrawStrip:
         pop dx
         pop cx
         pop ax
+        ret
+
+
+; AL <- color
+; CL <- width of chunk
+; DH <- y position of chunk
+DrawColChunk:
+        ; TODO draw xor texture pixels here instead of memset
+        rep stosb
         ret
 
 
