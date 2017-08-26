@@ -7,15 +7,14 @@ Start:
         mov ax, 0xA000 ; point ES to video memory
         mov es, ax
 
-    .lup:
+;   .lup:
         call MainLoop
-        jmp .lup
+;       jmp .lup
 
         mov ax, 0x03   ; return to text mode 0x03
         int 0x10
         mov ax, 0x4C00 ; exit with code 0
         int 0x21
-
 
 MainLoop:
         mov word [frameCounter], 60 * 2
@@ -81,13 +80,14 @@ DrawStrip:
         mov dl, bh
         add dl, bl
         shr dl, 1
-            pop cx
-            mov al, ch
-            call GetSineSmooth
-            shr al, 2
-            add al, 100
-            mov dh, al
-            push cx
+            mov dh, 160
+        ;   pop cx
+        ;   mov al, ch
+        ;   call GetSineSmooth
+        ;   shr al, 2
+        ;   add al, 100
+        ;   mov dh, al
+        ;   push cx
         sub dh, dl
 
         ; draw first empty region
@@ -213,7 +213,6 @@ WaitForRetrace:
         pop ax
         ret
 
+sineTable: incbin "sine.dat"
 
 frameCounter: dw 0
-
-sineTable: incbin "sine.dat"
