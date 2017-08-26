@@ -1,27 +1,42 @@
 bits 16
 org 0x100
 
+
 Start:
-        mov ax, 0x13   ; set video mode 13h
+        ; set up video mode 13h and point ES to vram
+        mov ax, 0x13
         int 0x10
-        mov ax, 0xA000 ; point ES to video memory
+        mov ax, 0xA000
         mov es, ax
 
-;   .lup:
-        call MainLoop
-;       jmp .lup
+        ; set up the 8253 timer chip, and enable the PC speaker
+        mov al, 182
+        out 43h, al
+        in al, 61h
+        or al, 00000011b
+        out 61h, al
 
-        mov ax, 0x03   ; return to text mode 0x03
+        call MainLoop
+
+        ; disable PC speaker
+        in al, 61h
+        and al, 11111100b
+        out 61h, al
+
+        ; return to text mode 0x03 and exit with code 0
+        mov ax, 0x03
         int 0x10
-        mov ax, 0x4C00 ; exit with code 0
+        mov ax, 0x4C00
         int 0x21
 
 MainLoop:
-        mov word [frameCounter], 60 * 2
+        mov word [musicPtr], musicData
+        mov word [frameCounter], 60 * 5
         xor ax, ax  ; ax: incremented every frame
 
     .topOfLoop:
         call WaitForRetrace
+        call UpdateMusic
 
         inc ax
 
@@ -213,6 +228,140 @@ WaitForRetrace:
         pop ax
         ret
 
+
+
+UpdateMusic:
+        push bx
+        dec byte [musicCounter]
+        jnz .skipLoad
+        call LoadMusic
+        mov byte [musicCounter], bl
+    .skipLoad:
+        pop bx
+        ret
+
+; BL -> frame count
+LoadMusic:
+        push di
+        push ax
+
+        mov di, [musicPtr]
+        mov bl, [di]
+        inc di
+        cmp bl, 0
+        je .reset
+        push bx
+        mov bl, [di]
+        sub bl, 12
+        shl bl, 1
+        inc di
+        xor bh, bh
+        mov ax, [notesTable+bx]
+;       shl ax, 2
+        pop bx
+        out 42h, al
+        mov al, ah
+        out 42h, al
+        mov [musicPtr], di
+
+        pop ax
+        pop di
+        ret
+    .reset:
+     ;  push ax
+     ;  ret
+     ;  popa
+        ret
+
+
+
 sineTable: incbin "sine.dat"
 
 frameCounter: dw 0
+
+musicCounter: db 1
+
+notesTable:
+        dw 18242 ; C
+        dw 17218
+        dw 16252
+        dw 15340
+        dw 14478
+        dw 13666
+        dw 12898
+        dw 12174
+        dw 11492
+        dw 10846
+        dw 10238
+        dw 9662
+        dw 9121
+        dw 8609
+        dw 8126
+        dw 7670
+        dw 7239
+        dw 6833
+        dw 6449
+        dw 6087
+        dw 5746
+        dw 5423
+        dw 5119
+        dw 4831
+        dw 4560
+        dw 4304
+        dw 4063
+        dw 3834
+        dw 3619
+        dw 3416
+        dw 3224
+        dw 3043
+        dw 2873
+        dw 2711
+        dw 2559
+        dw 2415
+        dw 2280
+        dw 2152
+        dw 2031
+        dw 1917
+        dw 1809
+        dw 1715
+        dw 1612
+        dw 1521
+        dw 1436
+        dw 1355
+        dw 1292
+        dw 1207
+        dw 1140
+
+musicPtr: dw 0
+
+; DT equ 2
+%define DT 5
+%define DTA 10
+
+musicData:
+        db 60, 12
+
+        db DTA,25,DT,23,DT,20
+        db DTA,25,DT,23,DT,20
+        db DTA,18,DT,15,DT,14
+        db DTA,20,DT,18,DT,15
+
+        db DTA,23,DT,20,DT,18
+        db DTA,15,DT,14,DT,13
+        db DTA,15,DT,14,DT,13
+        db DTA,14,DT,14,DT,14
+
+
+        db DTA,25,DT,23,DT,20
+        db DTA,25,DT,23,DT,20
+        db DTA,18,DT,15,DT,14
+        db DTA,20,DT,18,DT,15
+
+        db DTA,23,DT,20,DT,18
+        db DTA,15,DT,14,DT,13
+        db DTA,15,DT,14,DT,13
+        db DTA,14,DT,13,DT,15
+
+        db 0xFF,1
+
+        db 0
