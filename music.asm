@@ -30,6 +30,9 @@ MainLoop:
 
 ; BL -> frame count
 LoadMusic:
+        in al, 61h
+        or al, 00000011b
+        out 61h, al
         mov di, [musicPtr]
         mov bl, [di]
         inc di
@@ -37,6 +40,12 @@ LoadMusic:
         je Exit
         push bx
         mov bl, [di]
+        cmp bl, 37
+        jne .notOff
+            in al, 61h
+            and al, 11111100b
+            out 61h, al
+    .notOff:
         shl bl, 1
         inc di
         xor bh, bh
@@ -46,6 +55,8 @@ LoadMusic:
         mov al, ah
         out 42h, al
         mov [musicPtr], di
+        ret
+    .off:
         ret
 
 
@@ -116,67 +127,32 @@ notesTable:
         dw 1292 ; A#  34
         dw 1207 ; B   35
         dw 1140 ; C   36
+        dw 0    ;     37
 
 musicPtr:  dw 0
 
 musicData:
-        db 60
-        db 16
+        db 10,11
+        db 10,14
+        db 10,16
+        db 10,17
+        db 20,18
+        db 10,11
+        db 10,16
+        db 10,18
+        db 20,17
+        db 20,16
+        db 20,14
 
-        db 5
-        db 16
-        db 5
-        db 23
-        db 5
-        db 28
-
-        db 5
-        db 16
-        db 5
-        db 23
-        db 5
-        db 28
-
-        db 5
-        db 16
-        db 5
-        db 21
-        db 5
-        db 28
-
-        db 5
-        db 16
-        db 5
-        db 21
-        db 5
-        db 28
-
-        db 5
-        db 16
-        db 5
-        db 23
-        db 5
-        db 28
-
-        db 5
-        db 16
-        db 5
-        db 23
-        db 5
-        db 28
-
-        db 5
-        db 16
-        db 5
-        db 21
-        db 5
-        db 28
-
-        db 5
-        db 16
-        db 5
-        db 21
-        db 5
-        db 28
-
+        db 10,11
+        db 10,14
+        db 10,16
+        db 10,17
+        db 20,18
+        db 10,11
+        db 10,16
+        db 10,18
+        db 20,17
+        db 20,16
+        db 20,14
         db 0
