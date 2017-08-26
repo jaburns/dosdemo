@@ -81,7 +81,13 @@ DrawStrip:
         mov dl, bh
         add dl, bl
         shr dl, 1
-        mov dh, 120
+            pop cx
+            mov al, ch
+            call GetSineSmooth
+            shr al, 2
+            add al, 100
+            mov dh, al
+            push cx
         sub dh, dl
 
         ; draw first empty region
@@ -161,14 +167,33 @@ DrawColChunk:
         ret
 
 
-; AL <- theta
-; AL -> sin(theta)
+; AL <- theta      : 0->255 map to 0->pi
+; AL -> sin(theta) : 0->255 map to 0->1
 GetSine:
         push ax
         xor ah, ah
         mov si, ax
         pop ax
         mov al, [sineTable + si]
+        ret
+
+
+; AL <- theta      : 0->255 map to  0->2*pi
+; AL -> sin(theta) : 0->255 map to -1->1
+GetSineSmooth:
+        shl al, 1
+        jc .afterPi
+        call GetSine
+        shr al, 1
+        or al, 0x80
+        jmp .done
+    .afterPi:
+        call GetSine
+        inc al
+        neg al
+        shr al, 1
+      ; mov al, 0
+    .done:
         ret
 
 
