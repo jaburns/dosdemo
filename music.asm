@@ -1,51 +1,26 @@
-bits 16
-org 0x100
 
-
-Start:
-        mov ax, 0x13   ; set video mode 13h
-        int 0x10
-        mov ax, 0xA000 ; point ES to video memory
-        mov es, ax
-
-        mov al, 182
-        out 43h, al
-        in al, 61h
-        or al, 00000011b
-        out 61h, al
-
-        mov word [musicPtr], musicData
-
-
-MainLoop:
+UpdateMusic:
+        push bx
+        dec byte [musicCounter]
+        jnz .skipLoad
         call LoadMusic
-    .topOfLoop:
-        call WaitForRetrace
-
-        ; render gfx here
-
-        dec bl
-        jnz .topOfLoop
-        jmp MainLoop
+        mov byte [musicCounter], bl
+    .skipLoad:
+        pop bx
+        ret
 
 ; BL -> frame count
 LoadMusic:
-        in al, 61h
-        or al, 00000011b
-        out 61h, al
+        push di
+        push ax
+
         mov di, [musicPtr]
         mov bl, [di]
         inc di
         cmp bl, 0
-        je Exit
+        je .reset
         push bx
         mov bl, [di]
-        cmp bl, 37
-        jne .notOff
-            in al, 61h
-            and al, 11111100b
-            out 61h, al
-    .notOff:
         shl bl, 1
         inc di
         xor bh, bh
@@ -55,41 +30,46 @@ LoadMusic:
         mov al, ah
         out 42h, al
         mov [musicPtr], di
-        ret
-    .off:
-        ret
 
-
-
-Exit:
-        in al, 61h
-        and al, 11111100b
-        out 61h, al
-
-        mov ax, 0x03   ; return to text mode 0x03
-        int 0x10
-        mov ax, 0x4C00 ; exit with code 0
-        int 0x21
-
-
-
-WaitForRetrace:
-        push ax
-        push dx
-        mov dx, 0x03DA
-    .waitRetrace:
-        in al, dx     ; read from status port
-        test al, 0x08 ; bit 3 will be on if we're in retrace
-        jnz .waitRetrace
-    .endRefresh:
-        in al, dx
-        test al, 0x08
-        jz .endRefresh
-        pop dx
         pop ax
+        pop di
         ret
+    .reset:
+     ;  push ax
+     ;  ret
+     ;  popa
+        ret
+
+
+
+musicPtr: dw 0
+musicCounter: db 1
 
 notesTable:
+        dw 36484
+        dw 34436
+        dw 32504
+        dw 30680
+        dw 28956
+        dw 27332
+        dw 25796
+        dw 24348
+        dw 22984
+        dw 21692
+        dw 20476
+        dw 19324
+        dw 18242 ; C
+        dw 17218
+        dw 16252
+        dw 15340
+        dw 14478
+        dw 13666
+        dw 12898
+        dw 12174
+        dw 11492
+        dw 10846
+        dw 10238
+        dw 9662
         dw 9121 ; C   0
         dw 8609 ; C#  1
         dw 8126 ; D   2
@@ -129,30 +109,109 @@ notesTable:
         dw 1140 ; C   36
         dw 0    ;     37
 
-musicPtr:  dw 0
+%define Q 4
+%define H 12
+%define X 4
+
+%define Q_11 db X,12+11,Q,11
+%define Q_14 db X,12+14,Q,14
+%define Q_16 db X,12+16,Q,16
+%define Q_17 db X,12+17,Q,17
+%define Q_18 db X,12+18,Q,18
+%define Q_21 db X,12+21,Q,21
+%define H_11 db X,12+11,H,11
+%define H_14 db X,12+14,H,14
+%define H_16 db X,12+16,H,16
+%define H_17 db X,12+17,H,17
+%define H_18 db X,12+18,H,18
+%define H_21 db X,12+21,H,21
+
+%define SQ_11 db X+Q,12+11
+%define SQ_14 db X+Q,12+14
+%define SQ_16 db X+Q,12+16
+%define SQ_17 db X+Q,12+17
+%define SQ_18 db X+Q,12+18
+%define SQ_21 db X+Q,12+21
+%define SH_11 db X+H,12+11
+%define SH_14 db X+H,12+14
+%define SH_16 db X+H,12+16
+%define SH_17 db X+H,12+17
+%define SH_18 db X+H,12+18
+%define SH_21 db X+H,12+21
+
 
 musicData:
-        db 10,11
-        db 10,14
-        db 10,16
-        db 10,17
-        db 20,18
-        db 10,11
-        db 10,16
-        db 10,18
-        db 20,17
-        db 20,16
-        db 20,14
 
-        db 10,11
-        db 10,14
-        db 10,16
-        db 10,17
-        db 20,18
-        db 10,11
-        db 10,16
-        db 10,18
-        db 20,17
-        db 20,16
-        db 20,14
+        SH_11
+        SH_14
+        SH_18
+        SH_11
+        SH_18
+        SH_17
+        SH_16
+        SH_14
+
+        SH_11
+        SH_14
+        SH_18
+        SH_11
+        SH_21
+        SH_18
+        SH_16
+        SH_14
+
+        Q_11
+        Q_14
+        Q_16
+        Q_17
+        H_18
+        Q_11
+        Q_16
+        Q_18
+        H_17
+        H_16
+        H_14
+        Q_16
+
+        Q_11
+        Q_14
+        Q_16
+        Q_17
+        H_18
+        Q_11
+        Q_16
+        Q_18
+        H_16
+        H_17
+        H_16
+        Q_18
+
+        Q_11
+        Q_14
+        Q_16
+        Q_17
+        H_18
+        Q_11
+        Q_16
+        Q_18
+        H_17
+        H_16
+        H_14
+        Q_16
+
+        Q_11
+        Q_14
+        Q_16
+        Q_17
+        H_18
+        Q_11
+        Q_16
+        Q_21
+        H_18
+        Q_17
+        H_16
+        Q_14
+        Q_16
+
         db 0
+
