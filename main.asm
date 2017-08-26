@@ -1,13 +1,15 @@
 bits 16
 org 0x100
 
-
+Start:
         mov ax, 0x13   ; set video mode 13h
         int 0x10
         mov ax, 0xA000 ; point ES to video memory
         mov es, ax
 
+    .lup:
         call MainLoop
+        jmp .lup
 
         mov ax, 0x03   ; return to text mode 0x03
         int 0x10
@@ -16,18 +18,20 @@ org 0x100
 
 
 MainLoop:
-        xor ax, ax  ; ax: amount to add to cx each row
+        mov word [frameCounter], 60 * 2
+        xor ax, ax  ; ax: incremented every frame
 
     .topOfLoop:
         call WaitForRetrace
 
+        inc ax
+
         mov bh, 200 ; bh: counting down rows of screen
-        mov bl, 0   ; bl: counting up true angle on each screen row. computed from cx
-        xor cx, cx  ; cx: counting up multiple of angle on each screen row
+                    ; bl: counting up true angle on each screen row. computed from cx
+        mov cx, ax  ; cx: counting up multiple of angle on each screen row
+        shl cx, 7   ;     starting at a multiple of the time counter ax
         xor dx, dx  ; dx: video memory offset of current row
         xor di, di  ; di: video memory offset, but incremented by called routines
-
-        add ax, 1
 
         .rowsLoop:
             add cx, ax
@@ -185,6 +189,6 @@ WaitForRetrace:
         ret
 
 
-frameCounter: dw 150 ; 60 * 3
+frameCounter: dw 0
 
 sineTable: incbin "sine.dat"
