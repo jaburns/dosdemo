@@ -1,43 +1,42 @@
+InitMusic:
+        mov word [musicPtr], intro
+        ret
 
 UpdateMusic:
-        push bx
         dec byte [musicCounter]
         jnz .skipLoad
         call LoadMusic
-        mov byte [musicCounter], bl
     .skipLoad:
-        pop bx
         ret
 
-; BL -> frame count
 LoadMusic:
         push di
         push ax
 
-        mov di, [musicPtr]
-        mov bl, [di]
-        inc di
-        cmp bl, 0
-        je .reset
-        push bx
-        mov bl, [di]
-        shl bl, 1
-        inc di
+        mov di, word [musicPtr]
+        mov bl, byte [di]
+        inc word [musicPtr]
+        mov bh, bl
+        and bl, 0x07
+
+        and bh, 0x10
+        jz .shortNote
+            mov byte [musicCounter], 16
+            jmp .noteDurBranchEnd
+    .shortNote:
+            mov byte [musicCounter], 8
+    .noteDurBranchEnd:
+
         xor bh, bh
+        shl bl, 1
         mov ax, [freqTable+bx]
-        pop bx
+        shr ax, 1
         out 42h, al
         mov al, ah
         out 42h, al
-        mov [musicPtr], di
 
         pop ax
         pop di
-        ret
-    .reset:
-     ;  push ax
-     ;  ret
-     ;  popa
         ret
 
 

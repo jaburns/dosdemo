@@ -29,7 +29,7 @@ Start:
         int 0x21
 
 MainLoop:
-        mov word [musicPtr], intro
+        call InitMusic
         mov word [frameCounter], 60 * 10
         xor ax, ax  ; ax: incremented every frame
 
