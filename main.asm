@@ -30,7 +30,7 @@ Start:
 
 MainLoop:
         call InitMusic
-        mov word [frameCounter], 60 * 10
+        mov word [frameCounter], 60 * 20
         xor ax, ax  ; ax: incremented every frame
 
     .topOfLoop:
