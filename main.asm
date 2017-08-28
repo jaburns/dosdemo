@@ -57,12 +57,10 @@ MainLoop:
             call GetSineSmooth
             sub ax, 128
             sar ax, 1
-
             push ax
             mov ax, word [frameCounter]
-         ;  mov bl, 3
-         ;  div bl
-            add al, 128 + 96
+            sub ax, INTRO_LENGTH
+            shr ax, 1
             call GetSineSmooth
             shr al, 1
             add al, 160 - 64
@@ -371,7 +369,7 @@ musicLoop:
         db 0x04,0x13,0x12,0x11,0x02
         db 0x00,0x01,0x02,0x03,0x14,0x00,0x02
         db 0x05,0x14,0x03,0x12,0x01,0x02
-        db 0x1F
+        db 0xFF
 
 ;; ===========================================================================
 ;;  Import sine table
