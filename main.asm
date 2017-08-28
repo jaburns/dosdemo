@@ -273,7 +273,7 @@ WaitForRetrace:
 ;; ===========================================================================
 
 frameCounter:    dw 0
-musicPtr:        dw musicIntro
+musicPtr:        dw 0
 musicCounter:    db 1
 curFreq:         dw 0
 leftOffset:      db 160
@@ -313,17 +313,23 @@ UpdateMusic:
         ret
 
 LoadMusic:
-        push di
         push ax
         push bx
 
-        mov di, word [musicPtr]
-        mov bl, byte [di]
-        cmp bl, 0xFF
+        mov si, word [musicPtr]
+        shr si, 1
+        mov bl, byte [musicData + si]
+        jc .readLow
+            and bl, 0xF0
+            shr bl, 4
+            jmp .afterRead
+        .readLow:
+            and bl, 0x0F
+    .afterRead:
+        cmp bl, 0x0F
         jne .notEnd
-            mov word [musicPtr], musicLoop
-            mov di, musicLoop
-            mov bl, 0xE0 ; this is the value of the first byte in the music data loop
+            mov word [musicPtr], 16
+            mov bl, 0x00  ; This is the value of the first nibble in the music data loop
     .notEnd:
         inc word [musicPtr]
         mov bh, bl
@@ -345,36 +351,25 @@ LoadMusic:
 
         pop bx
         pop ax
-        pop di
         ret
 
 freqTable:
         dw 9662,8126,7239,6833,6449,5423
 
-;  TODO Can pack music data into nibbles to save space
-; music byte bits: xxxxBCCC
+; Music nibble bits: BCCC
 ;   B -> When set, duration should be twice as long
 ;   C -> Index of frequency in freqTable
-musicIntro:
-        db 0x08,0x09,0x0C,0x08
-        db 0x0C,0x0B,0x0A,0x09
-        db 0x08,0x09,0x0C,0x08
-        db 0x0D,0x0C,0x0A,0x09
-musicLoop:
-        db 0x00,0x01,0x02,0x03,0x0C,0x00,0x02
-        db 0x04,0x0B,0x0A,0x09,0x02
-        db 0x00,0x01,0x02,0x03,0x0C,0x00,0x02
-        db 0x04,0x0A,0x0B,0x0A,0x04
-        db 0x00,0x01,0x02,0x03,0x0C,0x00,0x02
-        db 0x04,0x0B,0x0A,0x09,0x02
-        db 0x00,0x01,0x02,0x03,0x0C,0x00,0x02
-        db 0x05,0x0C,0x03,0x0A,0x01,0x02
-        db 0xFF
+musicData:
+        db 0x89,0xC8,0xCB,0xA9
+        db 0x89,0xC8,0xDC,0xA9
+        db 0x01,0x23,0xC0,0x24,0xBA,0x92
+        db 0x01,0x23,0xC0,0x24,0xAB,0xA4
+        db 0x01,0x23,0xC0,0x24,0xBA,0x92
+        db 0x01,0x23,0xC0,0x25,0xC3,0xA1,0x2F
 
 ;; ===========================================================================
 ;;  Import sine table
 ;; ===========================================================================
 
 sineTable: incbin "sine.dat"
-
 
