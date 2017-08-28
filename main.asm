@@ -29,22 +29,37 @@ Start:
         int 0x21
 
 MainLoop:
-        call InitMusic
-
-    .topOfLoop:
         call WaitForRetrace
         call UpdateMusic
 
         inc word [frameCounter]
 
-        mov ax, word [frameCounter] ; amount to twist cx by on each next row
+        mov ax, word [frameCounter]
 
-        mov cx, ax  ; cx: counting up multiple of angle on each screen row
+        mov cx, ax  ; cx: counting up multiple of angle on each screen row (after intro)
         shl cx, 7   ;     starting at a multiple of the time counter ax
 
         xor ah, ah
-        call GetSineSmooth
-        sub ax, 128
+
+        cmp word [frameCounter], INTRO_LENGTH
+        jae .afterIntro
+            xor al, al          ; dont twist column during intro
+            jmp .endIntroBranch
+        .afterIntro:
+            add al, 96          ; offset sine lookup to align properly after intro
+            call GetSineSmooth
+            sub ax, 128
+            sar ax, 1
+
+            mov bl, al
+            mov al, byte [frameCounter]
+            add al, 128 + 96
+            call GetSineSmooth
+            shr al, 1
+            add al, 160 - 64
+            mov byte [leftOffset], al
+            mov al, bl
+        .endIntroBranch:
 
         mov bh, 200 ; bh: counting down rows of screen
                     ; bl: counting up true angle on each screen row. computed from cx
@@ -66,8 +81,8 @@ MainLoop:
             dec bh
             jnz .rowsLoop
 
-;       dec word [frameCounter]  jnz
-        jmp .topOfLoop
+        cmp word [frameCounter], DEMO_LENGTH
+        jb MainLoop
         ret
 
 ; BH <- row count
@@ -97,14 +112,7 @@ DrawStrip:
         mov dl, bh
         add dl, bl
         shr dl, 1
-            mov dh, 160
-        ;   pop cx
-        ;   mov al, ch
-        ;   call GetSineSmooth
-        ;   shr al, 2
-        ;   add al, 100
-        ;   mov dh, al
-        ;   push cx
+        mov dh, byte [leftOffset]
         sub dh, dl
 
         ; draw first empty region
@@ -235,29 +243,31 @@ WaitForRetrace:
 ;; ===========================================================================
 
 frameCounter:    dw 0
-musicPtr:        dw 0
+musicPtr:        dw musicIntro
 musicCounter:    db 1
 curFreq:         dw 0
-shouldShiftFreq: db 0
+leftOffset:      db 160
 
 ;; ===========================================================================
 ;;  Music related stuff
 ;; ===========================================================================
 
-InitMusic:
-        mov word [musicPtr], intro
-        ret
+QUARTER_NOTE          equ  9
+HALF_NOTE             equ  2 * QUARTER_NOTE
+HIGH_OCTAVE_DURATION  equ  4
+INTRO_LENGTH          equ 16 * HALF_NOTE
+DEMO_LENGTH           equ INTRO_LENGTH + 16 * 4 * 2 * QUARTER_NOTE - QUARTER_NOTE
 
 UpdateMusic:
         dec byte [musicCounter]
         jnz .skipLoad
         call LoadMusic
     .skipLoad:
-        cmp byte [shouldShiftFreq], 0xFF
-        jne .justRet
-        cmp byte [musicCounter], 5
+        cmp word [frameCounter], INTRO_LENGTH
+        jb .justRet
+        cmp byte [musicCounter], QUARTER_NOTE - HIGH_OCTAVE_DURATION
         je .freqShift
-        cmp byte [musicCounter], 14
+        cmp byte [musicCounter], HALF_NOTE - HIGH_OCTAVE_DURATION
         je .freqShift
         ret
     .freqShift:
@@ -280,29 +290,23 @@ LoadMusic:
         mov bl, byte [di]
         cmp bl, 0xFF
         jne .notEnd
-            mov word [musicPtr], main
-            mov di, main
+            mov word [musicPtr], musicLoop
+            mov di, musicLoop
             mov bl, 0xE0 ; this is the value of the first byte in the music data loop
     .notEnd:
         inc word [musicPtr]
         mov bh, bl
-        and bh, 0x80
-        jz .dontShiftFreq
-            mov byte [shouldShiftFreq], 0xFF
-    .dontShiftFreq:
-        mov bh, bl
         and bl, 0x07
         and bh, 0x10
         jz .shortNote
-            mov byte [musicCounter], 18
+            mov byte [musicCounter], HALF_NOTE
             jmp .noteDurBranchEnd
     .shortNote:
-            mov byte [musicCounter], 9
+            mov byte [musicCounter], QUARTER_NOTE
     .noteDurBranchEnd:
         xor bh, bh
         shl bl, 1
         mov ax, [freqTable+bx]
-        shr ax, 1
         mov word [curFreq], ax
         out 42h, al
         mov al, ah
@@ -313,26 +317,20 @@ LoadMusic:
         pop di
         ret
 
-; TODO can save a shift on load, these are too big by 2x
-
 freqTable:
-        dw 19324
-        dw 16252
-        dw 14478
-        dw 13666
-        dw 12898
-        dw 10846
+        dw 9662,8126,7239,6833,6449,5423
 
-; music byte bits: AxxBxCCC
-;   A -> When set first play note at half freq before playing main note
+;  TODO Can pack music data into nibbles to save space
+; music byte bits: xxxBxCCC
 ;   B -> When set, duration should be twice as long
 ;   C -> Index of frequency in freqTable
-intro:
+musicIntro:
         db 0x10,0x11,0x14,0x10
         db 0x14,0x13,0x12,0x11
         db 0x10,0x11,0x14,0x10
         db 0x15,0x14,0x12,0x11
-main:   db 0xE0,0xE1,0xE2,0xE3,0xF4,0xE0,0xE2
+musicLoop:
+        db 0xE0,0xE1,0xE2,0xE3,0xF4,0xE0,0xE2
         db 0xE4,0xF3,0xF2,0xF1,0xE2
         db 0xE0,0xE1,0xE2,0xE3,0xF4,0xE0,0xE2
         db 0xE4,0xF2,0xF3,0xF2,0xE4
@@ -346,6 +344,7 @@ main:   db 0xE0,0xE1,0xE2,0xE3,0xF4,0xE0,0xE2
 ;;  Import sine table
 ;; ===========================================================================
 
+; TODO Can make do with half the sine table resolution and interpolate
 sineTable: incbin "sine.dat"
 
 
