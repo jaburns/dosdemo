@@ -260,7 +260,7 @@ UpdateMusic:
         cmp byte [musicCounter], 14
         je .freqShift
         ret
-    .freqShift
+    .freqShift:
         push ax
         mov ax, word [curFreq]
         shl ax, 1
