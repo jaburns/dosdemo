@@ -33,7 +33,6 @@ MainLoop:
         call UpdateMusic
 
         inc word [frameCounter]
-
         mov ax, word [frameCounter]
 
         mov cx, ax  ; cx: counting up multiple of angle on each screen row (after intro)
@@ -42,23 +41,33 @@ MainLoop:
         xor ah, ah
 
         cmp word [frameCounter], INTRO_LENGTH
+
         jae .afterIntro
             xor al, al          ; dont twist column during intro
             jmp .endIntroBranch
         .afterIntro:
+            test word [frameCounter], 1
+            jz .afterBG
+            inc byte [bgColor]
+            cmp byte [bgColor], 0x9F
+            jb .afterBG
+            mov byte [bgColor], 0x80
+        .afterBG:
             add al, 96          ; offset sine lookup to align properly after intro
             call GetSineSmooth
             sub ax, 128
             sar ax, 1
 
-            mov bl, al
-            mov al, byte [frameCounter]
+            push ax
+            mov ax, word [frameCounter]
+         ;  mov bl, 3
+         ;  div bl
             add al, 128 + 96
             call GetSineSmooth
             shr al, 1
             add al, 160 - 64
             mov byte [leftOffset], al
-            mov al, bl
+            pop ax
         .endIntroBranch:
 
         mov bh, 200 ; bh: counting down rows of screen
@@ -93,6 +102,7 @@ DrawStrip:
         push ax
         push cx
         push dx
+        push di
         push bx
 
         ; get length of first face of column in to bh
@@ -118,7 +128,7 @@ DrawStrip:
         ; draw first empty region
         xor cx, cx
         mov cl, dh
-        mov al, 0
+        mov al, byte [bgColor]
         rep stosb
 
         ; draw two faces, order depending on input angle
@@ -144,12 +154,17 @@ DrawStrip:
 
         .drawOrderEnd:
 
-        ; draw more empty space to the right
-        mov cl, 30
-        mov ax, 0
-        rep stosw
-
         pop bx
+        pop dx
+
+        ; draw more empty space to the right
+        mov ax, di
+        sub ax, dx
+        mov cx, 320
+        sub cx, ax
+        mov al, byte [bgColor]
+        rep stosb
+
         pop dx
         pop cx
         pop ax
@@ -195,11 +210,28 @@ DrawColChunk:
 ; AL <- theta      : 0->255 map to 0->pi
 ; AL -> sin(theta) : 0->255 map to 0->1
 GetSine:
+        push bx
         push ax
         xor ah, ah
+        shr al, 1
         mov si, ax
+        mov bl, [sineTable + si]
+        jc .doInterpolate
+        jmp .ret
+    .doInterpolate:
+        push cx
+        xor bh, bh
+        xor ch, ch
+        inc si
+        and si, 0x7f
+        mov cl, byte [sineTable + si]
+        add bx, cx
+        shr bx, 1
+        pop cx
+    .ret:
         pop ax
-        mov al, [sineTable + si]
+        mov al, bl
+        pop bx
         ret
 
 
@@ -247,6 +279,7 @@ musicPtr:        dw musicIntro
 musicCounter:    db 1
 curFreq:         dw 0
 leftOffset:      db 160
+bgColor:         db 0x80
 
 ;; ===========================================================================
 ;;  Music related stuff
@@ -330,21 +363,20 @@ musicIntro:
         db 0x10,0x11,0x14,0x10
         db 0x15,0x14,0x12,0x11
 musicLoop:
-        db 0xE0,0xE1,0xE2,0xE3,0xF4,0xE0,0xE2
-        db 0xE4,0xF3,0xF2,0xF1,0xE2
-        db 0xE0,0xE1,0xE2,0xE3,0xF4,0xE0,0xE2
-        db 0xE4,0xF2,0xF3,0xF2,0xE4
-        db 0xE0,0xE1,0xE2,0xE3,0xF4,0xE0,0xE2
-        db 0xE4,0xF3,0xF2,0xF1,0xE2
-        db 0xE0,0xE1,0xE2,0xE3,0xF4,0xE0,0xE2
-        db 0xE5,0xF4,0xE3,0xF2,0xE1,0xE2
-        db 0xFF
+        db 0x00,0x01,0x02,0x03,0x14,0x00,0x02
+        db 0x04,0x13,0x12,0x11,0x02
+        db 0x00,0x01,0x02,0x03,0x14,0x00,0x02
+        db 0x04,0x12,0x13,0x12,0x04
+        db 0x00,0x01,0x02,0x03,0x14,0x00,0x02
+        db 0x04,0x13,0x12,0x11,0x02
+        db 0x00,0x01,0x02,0x03,0x14,0x00,0x02
+        db 0x05,0x14,0x03,0x12,0x01,0x02
+        db 0x1F
 
 ;; ===========================================================================
 ;;  Import sine table
 ;; ===========================================================================
 
-; TODO Can make do with half the sine table resolution and interpolate
 sineTable: incbin "sine.dat"
 
 
