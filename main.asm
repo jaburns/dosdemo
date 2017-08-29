@@ -1,43 +1,88 @@
 bits 16
 org 0x100
 
-Start:
-        ; set up video mode 13h and point ES to vram
-        mov ax, 0x13
+;; ===== Initialize video and sound
+Init:
+        mov ax, 0x13 ; set up video mode 13h and point ES to vram
         int 0x10
         mov ax, 0xA000
-        mov es, ax
-
-        ; set up the 8253 timer chip, and enable the PC speaker
+        mov es, ax  ; point ES to vram
         mov al, 182
-        out 43h, al
+        out 43h, al ; set up the 8253 timer chip
         in al, 61h
         or al, 00000011b
-        out 61h, al
+        out 61h, al ; init PC speaker
 
-        call MainLoop
+;; ===== Wait for retrace
+WaitForRetrace:
+        mov dx, 0x03DA
+    .waitRetrace:
+        in al, dx
+        test al, 0x08 ; bit 3 will be on if we're in retrace
+        jnz .waitRetrace
+    .endRefresh:
+        in al, dx
+        test al, 0x08
+        jz .endRefresh
 
-        ; disable PC speaker
-        in al, 61h
-        and al, 11111100b
-        out 61h, al
+;; ===== Update Music -- Clobbers: AX, BX, CX, DH, SI
+UpdateMusic:
+        mov dh, byte [musicCounter]
+        mov cx, word [musicPtr]
+        dec dh
+        jnz .skipLoad
+    .loadMusic:
+        mov si, cx
+        shr si, 1
+        mov bl, byte [musicData + si]
+        jc .readLow
+        shr bl, 4
+    .readLow:
+        and bl, 0x0F
+    .afterRead:
+        cmp bl, 0x0F
+        jne .notEnd
+        mov cx, 16
+        mov bl, 0x00 ; This is the value of the first nibble in the music data loop
+    .notEnd:
+        inc cx
+        mov bh, bl
+        and bl, 0x07
+        and bh, 0x08
+        jz .shortNote
+        mov dh, HALF_NOTE
+        jmp .noteDurBranchEnd
+    .shortNote:
+        mov dh, QUARTER_NOTE
+    .noteDurBranchEnd:
+        xor bh, bh
+        shl bl, 1
+        mov ax, [freqTable+bx]
+        mov word [curFreq], ax
+        call PlayAX
+    .skipLoad:
+        cmp word [frameCounter], INTRO_LENGTH
+        jb .end
+        cmp dh, QUARTER_NOTE - HIGH_OCTAVE_DURATION
+        je .freqShift
+        cmp dh, HALF_NOTE - HIGH_OCTAVE_DURATION
+        je .freqShift
+        jmp .end
+    .freqShift:
+        mov ax, word [curFreq]
+        shl ax, 1
+        call PlayAX
+    .end:
+        mov word [musicPtr], cx
+        mov byte [musicCounter], dh
 
-        ; return to text mode 0x03 and exit with code 0
-        mov ax, 0x03
-        int 0x10
-        mov ax, 0x4C00
-        int 0x21
+;; =====
 
-MainLoop:
-        call WaitForRetrace
-        call UpdateMusic
-
+PreLoopInit:
         inc word [frameCounter]
         mov ax, word [frameCounter]
-
         mov cx, ax  ; cx: counting up multiple of angle on each screen row (after intro)
         shl cx, 7   ;     starting at a multiple of the time counter ax
-
         xor ah, ah
 
         cmp word [frameCounter], INTRO_LENGTH
@@ -89,8 +134,26 @@ MainLoop:
             jnz .rowsLoop
 
         cmp word [frameCounter], DEMO_LENGTH
-        jb MainLoop
+        jb WaitForRetrace
+
+;; ===== Restore video + sound settings and exit
+        ; disable PC speaker
+        in al, 61h
+        and al, 11111100b
+        out 61h, al    ; disable PC speaker
+        mov ax, 0x03   ; return to text mode 0x03
+        int 0x10
+        mov ax, 0x4C00 ; exit with code 0
+        int 0x21
+
+
+
+PlayAX:
+        out 42h, al
+        mov al, ah
+        out 42h, al
         ret
+
 
 ; BH <- row count
 ; BL <- theta
@@ -204,7 +267,6 @@ DrawColChunk:
         pop ax
         ret
 
-
 ; AL <- theta      : 0->255 map to 0->pi
 ; AL -> sin(theta) : 0->255 map to 0->1
 GetSine:
@@ -232,7 +294,6 @@ GetSine:
         pop bx
         ret
 
-
 ; AL <- theta      : 0->255 map to  0->2*pi
 ; AL -> sin(theta) : 0->255 map to -1->1
 GetSineSmooth:
@@ -247,110 +308,19 @@ GetSineSmooth:
         inc al
         neg al
         shr al, 1
-      ; mov al, 0
     .done:
         ret
 
 
-WaitForRetrace:
-        push ax
-        push dx
-        mov dx, 0x03DA
-    .waitRetrace:
-        in al, dx     ; read from status port
-        test al, 0x08 ; bit 3 will be on if we're in retrace
-        jnz .waitRetrace
-    .endRefresh:
-        in al, dx
-        test al, 0x08
-        jz .endRefresh
-        pop dx
-        pop ax
-        ret
-
 ;; ===========================================================================
-;;  State
+;;  Assembler constants and static constant data
 ;; ===========================================================================
 
-frameCounter:    dw 0
-musicPtr:        dw 0
-musicCounter:    db 1
-curFreq:         dw 0
-leftOffset:      db 160
-bgColor:         db 0x80
-
-;; ===========================================================================
-;;  Music related stuff
-;; ===========================================================================
-
-QUARTER_NOTE          equ  9
-HALF_NOTE             equ  2 * QUARTER_NOTE
-HIGH_OCTAVE_DURATION  equ  4
-INTRO_LENGTH          equ 16 * HALF_NOTE
-DEMO_LENGTH           equ INTRO_LENGTH + 16 * 4 * 2 * QUARTER_NOTE - QUARTER_NOTE
-
-; Clobbers: AX, BX, CX, DH, SI
-UpdateMusic:
-        ;
-        mov dh, byte [musicCounter]
-        mov cx, word [musicPtr]
-        dec dh
-        jnz .skipLoad
-        call LoadMusic
-    .skipLoad:
-        cmp word [frameCounter], INTRO_LENGTH
-        jb .end
-        cmp dh, QUARTER_NOTE - HIGH_OCTAVE_DURATION
-        je .freqShift
-        cmp dh, HALF_NOTE - HIGH_OCTAVE_DURATION
-        je .freqShift
-        jmp .end
-    .freqShift:
-        mov ax, word [curFreq]
-        shl ax, 1
-        call PlayAX
-    .end:
-        mov word [musicPtr], cx
-        mov byte [musicCounter], dh
-        ret
-
-; Clobbers: AX, BX, SI
-LoadMusic:
-        mov si, cx
-        shr si, 1
-        mov bl, byte [musicData + si]
-        jc .readLow
-            and bl, 0xF0
-            shr bl, 4
-            jmp .afterRead
-        .readLow:
-            and bl, 0x0F
-    .afterRead:
-        cmp bl, 0x0F
-        jne .notEnd
-            mov cx, 16
-            mov bl, 0x00 ; This is the value of the first nibble in the music data loop
-    .notEnd:
-        inc cx
-        mov bh, bl
-        and bl, 0x07
-        and bh, 0x08
-        jz .shortNote
-            mov dh, HALF_NOTE
-            jmp .noteDurBranchEnd
-    .shortNote:
-            mov dh, QUARTER_NOTE
-    .noteDurBranchEnd:
-        xor bh, bh
-        shl bl, 1
-        mov ax, [freqTable+bx]
-        mov word [curFreq], ax
-PlayAX:
-        out 42h, al
-        mov al, ah
-        out 42h, al
-        ret
-
+QUARTER_NOTE         equ  9
+HALF_NOTE            equ  2 * QUARTER_NOTE
+HIGH_OCTAVE_DURATION equ  4
+INTRO_LENGTH         equ 16 * HALF_NOTE
+DEMO_LENGTH          equ INTRO_LENGTH + 16 * 4 * 2 * QUARTER_NOTE - QUARTER_NOTE
 
 freqTable:
         dw 9662,8126,7239,6833,6449,5423
@@ -366,10 +336,6 @@ musicData:
         db 0x01,0x23,0xC0,0x24,0xBA,0x92
         db 0x01,0x23,0xC0,0x25,0xC3,0xA1,0x2F
 
-;; ===========================================================================
-;;  Sine table
-;; ===========================================================================
-
 sineTable:
         db 0x00,0x06,0x0D,0x13,0x19,0x1F,0x25,0x2C,0x32,0x38,0x3E,0x44,0x4A,0x50,0x56,0x5C
         db 0x62,0x67,0x6D,0x73,0x78,0x7E,0x83,0x88,0x8E,0x93,0x98,0x9D,0xA2,0xA7,0xAB,0xB0
@@ -379,3 +345,14 @@ sineTable:
         db 0xEC,0xE9,0xE7,0xE4,0xE1,0xDE,0xDB,0xD7,0xD4,0xD0,0xCD,0xC9,0xC5,0xC1,0xBD,0xB9
         db 0xB4,0xB0,0xAB,0xA7,0xA2,0x9D,0x98,0x93,0x8E,0x88,0x83,0x7E,0x78,0x73,0x6D,0x67
         db 0x62,0x5C,0x56,0x50,0x4A,0x44,0x3E,0x38,0x32,0x2C,0x25,0x1F,0x19,0x13,0x0D,0x06
+
+;; ===========================================================================
+;;  Dynamic state
+;; ===========================================================================
+
+frameCounter: dw 0
+musicPtr:     dw 0
+musicCounter: db 1
+leftOffset:   db 160
+bgColor:      db 0x80
+curFreq:      dw 0     ; this word can be chopped from the end of the .COM file
