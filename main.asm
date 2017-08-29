@@ -106,18 +106,77 @@ PreLoopInit:
         mov byte [leftOffset], al
         pop ax
     .endIntroBranch:
-        mov bh, 200 ; bh: counting down rows of screen
-                    ; bl: counting up true angle on each screen row. computed from cx
-        xor di, di  ; di: video memory offset, incremented in DrawStrip
+        mov bh, 200  ; bh: counting down rows of screen
+        xor di, di   ; di: video memory offset, incremented in DrawStrip
 
 ;; ===== Loop over the screen pixel rows
 RowsLoop:
+        ; ax <- amount to add to cx each row
+        ; cx <- large multiple of theta
+        ; bh <- row count
+        ; bl <- theta
         add cx, ax
         push cx
         shr cx, 6
         mov bl, cl
         pop cx
-        call DrawStrip
+    .drawStrip:
+        push ax
+        push bx
+        push cx
+
+        push di
+        push bx
+
+        mov al, bl  ; get length of first face of column in to bh
+        call GetSine
+        shr al, 2
+        mov bh, al
+        mov al, bl  ; get length of second face of column in to bl
+        add al, 128
+        call GetSine
+        shr al, 2
+        mov bl, al
+        mov dl, bh ; get length of left empty region in to dh
+        add dl, bl
+        shr dl, 1
+        mov dh, byte [leftOffset]
+        sub dh, dl
+        xor cx, cx ; draw first empty region
+        mov cl, dh
+        mov al, byte [bgColor]
+        rep stosb
+
+        pop dx ; draw two faces, order depending on input angle
+        cmp dl, 128
+        ja .drawOrderElse
+        mov cl, bh
+        mov dl, 0x10
+        call DrawColChunk
+        mov cl, bl
+        mov dl, 0x40
+        call DrawColChunk
+        jmp .drawOrderEnd
+    .drawOrderElse:
+        mov cl, bl
+        mov dl, 0x40
+        call DrawColChunk
+        mov cl, bh
+        mov dl, 0x10
+        call DrawColChunk
+    .drawOrderEnd:
+        pop dx
+        mov ax, di ; draw more empty space to the right
+        sub ax, dx
+        mov cx, 320
+        sub cx, ax
+        mov al, byte [bgColor]
+        rep stosb
+
+        pop cx
+        pop bx
+        pop ax
+    .drawStripEnd:
         dec bh
         jnz RowsLoop
         cmp word [frameCounter], DEMO_LENGTH
@@ -141,83 +200,6 @@ PlayAX:
         mov al, ah
         out 42h, al
         ret
-
-; BH <- row count
-; BL <- theta
-; DI <- vram offset of start of row
-; DI -> vram offset after drawing
-DrawStrip:
-        push ax
-        push cx
-        push dx
-        push di
-        push bx
-
-        ; get length of first face of column in to bh
-        mov al, bl
-        call GetSine
-        shr al, 2
-        mov bh, al
-
-        ; get length of second face of column in to bl
-        mov al, bl
-        add al, 128
-        call GetSine
-        shr al, 2
-        mov bl, al
-
-        ; get length of left empty region in to dh
-        mov dl, bh
-        add dl, bl
-        shr dl, 1
-        mov dh, byte [leftOffset]
-        sub dh, dl
-
-        ; draw first empty region
-        xor cx, cx
-        mov cl, dh
-        mov al, byte [bgColor]
-        rep stosb
-
-        ; draw two faces, order depending on input angle
-        pop dx
-        cmp dl, 128
-        push dx
-        ja .drawOrderElse
-            mov cl, bh
-            mov dl, 0x10
-            call DrawColChunk
-            mov cl, bl
-            mov dl, 0x40
-            call DrawColChunk
-            jmp .drawOrderEnd
-
-        .drawOrderElse:
-            mov cl, bl
-            mov dl, 0x40
-            call DrawColChunk
-            mov cl, bh
-            mov dl, 0x10
-            call DrawColChunk
-
-        .drawOrderEnd:
-
-        pop bx
-        pop dx
-
-        ; draw more empty space to the right
-        mov ax, di
-        sub ax, dx
-        mov cx, 320
-        sub cx, ax
-        mov al, byte [bgColor]
-        rep stosb
-
-        pop dx
-        pop cx
-        pop ax
-        ret
-
 
 ; CL <- width of chunk
 ; DH <- y position of chunk
