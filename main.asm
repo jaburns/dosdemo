@@ -13,7 +13,7 @@ Init:
         or al, 00000011b
         out 61h, al ; init PC speaker
 
-;; ===== Wait for retrace
+;; ===== Wait for retrace, top of main loop -- Clobbers: AL, DX
 WaitForRetrace:
         mov dx, 0x03DA
     .waitRetrace:
@@ -53,7 +53,7 @@ UpdateMusic:
         add dh, QUARTER_NOTE
     .quarterNote:
         shl bl, 1
-        mov ax, [freqTable+bx]
+        mov ax, [freqTable + bx]
         mov word [curFreq], ax
         call PlayAX
     .skipLoad:
@@ -72,68 +72,60 @@ UpdateMusic:
         mov word [musicPtr], cx
         mov byte [musicCounter], dh
 
-;; =====
-
+;; ===== Set up the frame to start drawing pixel rows
 PreLoopInit:
         inc word [frameCounter]
         mov ax, word [frameCounter]
         mov cx, ax  ; cx: counting up multiple of angle on each screen row (after intro)
         shl cx, 7   ;     starting at a multiple of the time counter ax
-        xor ah, ah
-
-        cmp word [frameCounter], INTRO_LENGTH
-
+        cmp ax, INTRO_LENGTH
         jae .afterIntro
-            xor al, al          ; dont twist column during intro
-            jmp .endIntroBranch
-        .afterIntro:
-            test word [frameCounter], 1
-            jz .afterBG
-            inc byte [bgColor]
-            cmp byte [bgColor], 0x9F
-            jb .afterBG
-            mov byte [bgColor], 0x80
-        .afterBG:
-            add al, 96          ; offset sine lookup to align properly after intro
-            call GetSineSmooth
-            sub ax, 128
-            sar ax, 1
-            push ax
-            mov ax, word [frameCounter]
-            sub ax, INTRO_LENGTH
-            shr ax, 1
-            call GetSineSmooth
-            shr al, 1
-            add al, 160 - 64
-            mov byte [leftOffset], al
-            pop ax
-        .endIntroBranch:
-
+        xor ax, ax  ; dont twist column during intro
+        jmp .endIntroBranch
+    .afterIntro:
+        test ax, 1
+        jz .afterBG
+        inc byte [bgColor]  ; TODO compute bg color from frame counter
+        cmp byte [bgColor], 0x9F
+        jb .afterBG
+        mov byte [bgColor], 0x80
+    .afterBG:
+        xor ah, ah
+        add al, 96  ; offset sine lookup to align properly after intro
+        call GetSineSmooth
+        sub ax, 128
+        sar ax, 1
+        push ax
+        mov ax, word [frameCounter]
+        sub ax, INTRO_LENGTH
+        shr ax, 1
+        call GetSineSmooth
+        shr al, 1
+        add al, 160 - 64
+        mov byte [leftOffset], al
+        pop ax
+    .endIntroBranch:
         mov bh, 200 ; bh: counting down rows of screen
                     ; bl: counting up true angle on each screen row. computed from cx
         xor dx, dx  ; dx: video memory offset of current row
         xor di, di  ; di: video memory offset, but incremented by called routines
 
-        .rowsLoop:
-            add cx, ax
-            push cx
-            shr cx, 6
-            mov bl, cl
-            pop cx
-
-            call DrawStrip
-
-            add dx, 320
-            mov di, dx
-
-            dec bh
-            jnz .rowsLoop
-
+;; ===== Loop over the screen pixel rows
+RowsLoop:
+        add cx, ax
+        push cx
+        shr cx, 6
+        mov bl, cl
+        pop cx
+        call DrawStrip
+        add dx, 320
+        mov di, dx
+        dec bh
+        jnz RowsLoop
         cmp word [frameCounter], DEMO_LENGTH
         jb WaitForRetrace
 
 ;; ===== Restore video + sound settings and exit
-        ; disable PC speaker
         in al, 61h
         and al, 11111100b
         out 61h, al    ; disable PC speaker
@@ -142,14 +134,15 @@ PreLoopInit:
         mov ax, 0x4C00 ; exit with code 0
         int 0x21
 
-
+;; ===========================================================================
+;;  Subroutines
+;; ===========================================================================
 
 PlayAX:
         out 42h, al
         mov al, ah
         out 42h, al
         ret
-
 
 ; BH <- row count
 ; BL <- theta
@@ -306,7 +299,6 @@ GetSineSmooth:
         shr al, 1
     .done:
         ret
-
 
 ;; ===========================================================================
 ;;  Assembler constants and static constant data
