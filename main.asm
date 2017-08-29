@@ -289,34 +289,34 @@ HIGH_OCTAVE_DURATION  equ  4
 INTRO_LENGTH          equ 16 * HALF_NOTE
 DEMO_LENGTH           equ INTRO_LENGTH + 16 * 4 * 2 * QUARTER_NOTE - QUARTER_NOTE
 
+; Clobbers: AX, BX, CX, DH, SI
 UpdateMusic:
-        dec byte [musicCounter]
+        ;
+        mov dh, byte [musicCounter]
+        mov cx, word [musicPtr]
+        dec dh
         jnz .skipLoad
         call LoadMusic
     .skipLoad:
         cmp word [frameCounter], INTRO_LENGTH
-        jb .justRet
-        cmp byte [musicCounter], QUARTER_NOTE - HIGH_OCTAVE_DURATION
+        jb .end
+        cmp dh, QUARTER_NOTE - HIGH_OCTAVE_DURATION
         je .freqShift
-        cmp byte [musicCounter], HALF_NOTE - HIGH_OCTAVE_DURATION
+        cmp dh, HALF_NOTE - HIGH_OCTAVE_DURATION
         je .freqShift
-        ret
+        jmp .end
     .freqShift:
-        push ax
         mov ax, word [curFreq]
         shl ax, 1
-        out 42h, al
-        mov al, ah
-        out 42h, al
-        pop ax
-    .justRet:
+        call PlayAX
+    .end:
+        mov word [musicPtr], cx
+        mov byte [musicCounter], dh
         ret
 
+; Clobbers: AX, BX, SI
 LoadMusic:
-        push ax
-        push bx
-
-        mov si, word [musicPtr]
+        mov si, cx
         shr si, 1
         mov bl, byte [musicData + si]
         jc .readLow
@@ -328,30 +328,29 @@ LoadMusic:
     .afterRead:
         cmp bl, 0x0F
         jne .notEnd
-            mov word [musicPtr], 16
-            mov bl, 0x00  ; This is the value of the first nibble in the music data loop
+            mov cx, 16
+            mov bl, 0x00 ; This is the value of the first nibble in the music data loop
     .notEnd:
-        inc word [musicPtr]
+        inc cx
         mov bh, bl
         and bl, 0x07
         and bh, 0x08
         jz .shortNote
-            mov byte [musicCounter], HALF_NOTE
+            mov dh, HALF_NOTE
             jmp .noteDurBranchEnd
     .shortNote:
-            mov byte [musicCounter], QUARTER_NOTE
+            mov dh, QUARTER_NOTE
     .noteDurBranchEnd:
         xor bh, bh
         shl bl, 1
         mov ax, [freqTable+bx]
         mov word [curFreq], ax
+PlayAX:
         out 42h, al
         mov al, ah
         out 42h, al
-
-        pop bx
-        pop ax
         ret
+
 
 freqTable:
         dw 9662,8126,7239,6833,6449,5423
