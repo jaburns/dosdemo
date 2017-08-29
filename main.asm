@@ -47,14 +47,12 @@ UpdateMusic:
     .notEnd:
         inc cx
         mov bh, bl
-        and bl, 0x07
-        and bh, 0x08
-        jz .shortNote
-        mov dh, HALF_NOTE
-        jmp .noteDurBranchEnd
-    .shortNote:
+        and bl, 0x07 ; TODO The note length should be LSB, then we can shift off the LSB
+        and bh, 0x08 ; and branch if carry to handle this section, leaving the index in register.
         mov dh, QUARTER_NOTE
-    .noteDurBranchEnd:
+        jz .quarterNote
+        add dh, QUARTER_NOTE
+    .quarterNote:
         xor bh, bh
         shl bl, 1
         mov ax, [freqTable+bx]
