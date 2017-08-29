@@ -9,14 +9,4 @@ install_nasm() {
     mv nasm-2.14rc0 nasm
 }
 
-create_sine_table() {
-    awk 'BEGIN {
-        for (t = 0; t <= 255; t += 2)
-            printf("%02x", 255*sin(3.14159265358979 * t / 256.0) + 0.5);
-    }'
-}
-
 install_nasm
-printf 'Creating sine table "sine.dat"...'
-create_sine_table | xxd -r -p > sine.dat
-echo 'Done!'
