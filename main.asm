@@ -212,25 +212,20 @@ DrawColChunk:
         push ax
         push cx
         push dx
-
         shr dh, 2
         mov ch, cl
         inc ch
-
-        .drawLoop:
-            xor ah, ah
-            mov al, cl
-            shl ax, 4
-            div ch
-
-            xor al, dh
-            and al, 0x0F
-            add al, dl
-
-            stosb
-            dec cl
-            jnz .drawLoop
-
+    .drawLoop:
+        xor ah, ah
+        mov al, cl
+        shl ax, 4
+        div ch
+        xor al, dh
+        and al, 0x0F
+        add al, dl
+        stosb
+        dec cl
+        jnz .drawLoop
         pop dx
         pop cx
         pop ax
