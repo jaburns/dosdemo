@@ -74,6 +74,7 @@ UpdateMusic:
 
 ;; ===== Set up the frame to start drawing pixel rows
 PreLoopInit:
+        ; dx: unused
         inc word [frameCounter]
         mov ax, word [frameCounter]
         mov cx, ax  ; cx: counting up multiple of angle on each screen row (after intro)
@@ -107,8 +108,7 @@ PreLoopInit:
     .endIntroBranch:
         mov bh, 200 ; bh: counting down rows of screen
                     ; bl: counting up true angle on each screen row. computed from cx
-        xor dx, dx  ; dx: video memory offset of current row
-        xor di, di  ; di: video memory offset, but incremented by called routines
+        xor di, di  ; di: video memory offset, incremented in DrawStrip
 
 ;; ===== Loop over the screen pixel rows
 RowsLoop:
@@ -118,8 +118,6 @@ RowsLoop:
         mov bl, cl
         pop cx
         call DrawStrip
-        add dx, 320
-        mov di, dx
         dec bh
         jnz RowsLoop
         cmp word [frameCounter], DEMO_LENGTH
