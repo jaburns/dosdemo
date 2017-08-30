@@ -75,7 +75,7 @@ UpdateMusic:
 ;; ===== Set up the frame to start drawing pixel rows
 PreLoopInit:
         ; dx: unused
-        inc word [frameCounter]
+        inc word [frameCounter]  ; TODO have frame counter in register through music update and pre-init
         mov ax, word [frameCounter]
         mov cx, ax  ; cx: counting up multiple of angle on each screen row (after intro)
         shl cx, 7   ;     starting at a multiple of the time counter ax
