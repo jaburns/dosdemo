@@ -262,7 +262,7 @@ GetSine:
         push si
         cmp si, 64
         jb .below64
-        sub si, 128
+        sub si, 127
         neg si
     .below64:
         mov bl, byte [sineTable + si]
