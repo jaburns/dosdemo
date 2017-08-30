@@ -28,8 +28,8 @@ WaitForRetrace:
 ;; ===== Update music -- Clobbers: AX, BX, CX, DH, SI
 UpdateMusic:
     ;   assert(bh == 0)
-        mov dh, 1 ; the byte variable musicCounter is stored in this instruction directly
-    .musicPtr: mov cx, 0 ; the word variable musicPtr is stored in this instruction directly
+        .varMusicCounter: mov dh, 1  ; labels preceded by 'var' indicate instructions that double as mutable state.
+        .varMusicPtr:     mov cx, 0
         dec dh
         jnz .skipLoad
     .loadMusic:
@@ -44,7 +44,7 @@ UpdateMusic:
         cmp bl, 0x0F
         jne .notEnd
         mov cx, 16
-        mov bl, 0x00 ; This is the value of the first nibble in the music data loop
+        mov bl, 0x00 ; this is the value of the first nibble in the music data loop
     .notEnd:
         inc cx
         shr bl, 1
@@ -54,10 +54,10 @@ UpdateMusic:
     .quarterNote:
         shl bl, 1
         mov ax, [freqTable + bx]
-        mov word [curFreq], ax
+        mov word [UpdateMusic.varCurFreq + 1], ax
         call PlayAX
     .skipLoad:
-        cmp word [PreLoopInit.frameCounter + 1], INTRO_LENGTH
+        cmp word [PreLoopInit.varFrameCounter + 1], INTRO_LENGTH
         jb .end
         cmp dh, QUARTER_NOTE - HIGH_OCTAVE_DURATION
         je .freqShift
@@ -65,18 +65,18 @@ UpdateMusic:
         je .freqShift
         jmp .end
     .freqShift:
-        mov ax, word [curFreq]
+        .varCurFreq: mov ax, 0
         shl ax, 1
         call PlayAX
     .end:
-        mov word [UpdateMusic.musicPtr + 1], cx
-        mov byte [UpdateMusic + 1], dh
+        mov word [UpdateMusic.varMusicPtr + 1], cx
+        mov byte [UpdateMusic.varMusicCounter + 1], dh
 
 ;; ===== Set up the frame to start drawing pixel rows
 PreLoopInit:
         ; dx: unused
-        inc word [PreLoopInit.frameCounter + 1]
-    .frameCounter:  mov ax, 0  ; storing the current value of the frame counter in this instruction
+        inc word [PreLoopInit.varFrameCounter + 1]
+        .varFrameCounter: mov ax, 0
         mov cx, ax  ; cx: counting up multiple of angle on each screen row (after intro)
         shl cx, 7   ;     starting at a multiple of the time counter ax
         cmp ax, INTRO_LENGTH
@@ -95,13 +95,13 @@ PreLoopInit:
         sub ax, 128
         sar ax, 1
         push ax
-        mov ax, word [PreLoopInit.frameCounter + 1]
+        mov ax, word [PreLoopInit.varFrameCounter + 1]
         sub ax, INTRO_LENGTH
         shr ax, 1
         call GetSineSmooth
         shr al, 1
         add al, 160 - 64
-        mov byte [RowsLoop.leftOffset + 2], al
+        mov byte [RowsLoop.varLeftOffset + 2], al
         pop ax
     .endIntroBranch:
         mov bh, 200  ; bh: counting down rows of screen
@@ -138,7 +138,7 @@ RowsLoop:
         mov dl, bh ; get length of left empty region in to dh
         add dl, bl
         shr dl, 1
-    .leftOffset: sub dl, 160 ; the byte variable leftOffset stored here
+        .varLeftOffset: sub dl, 160
         neg dl
         xor cx, cx ; draw first empty region
         mov cl, dl
@@ -168,7 +168,7 @@ RowsLoop:
     .drawStripEnd:
         dec bh
         jnz RowsLoop
-        cmp word [PreLoopInit.frameCounter + 1], DEMO_LENGTH
+        cmp word [PreLoopInit.varFrameCounter + 1], DEMO_LENGTH
         jb WaitForRetrace
 
 ;; ===== Restore video + sound settings and exit
@@ -318,5 +318,3 @@ sineTable:
         db 0x62,0x67,0x6D,0x73,0x78,0x7E,0x83,0x88,0x8E,0x93,0x98,0x9D,0xA2,0xA7,0xAB,0xB0
         db 0xB4,0xB9,0xBD,0xC1,0xC5,0xC9,0xCD,0xD0,0xD4,0xD7,0xDB,0xDE,0xE1,0xE4,0xE7,0xE9
         db 0xEC,0xEE,0xF0,0xF2,0xF4,0xF6,0xF7,0xF9,0xFA,0xFB,0xFC,0xFD,0xFE,0xFE,0xFF,0xFF
-
-curFreq equ 0x9102 ; Point to some memory past the end of the loaded binary
