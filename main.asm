@@ -75,7 +75,7 @@ UpdateMusic:
 ;; ===== Set up the frame to start drawing pixel rows
 PreLoopInit:
         ; dx: unused
-        inc word [frameCounter]  ; TODO have frame counter in register through music update and pre-init
+        inc word [frameCounter]
         mov ax, word [frameCounter]
         mov cx, ax  ; cx: counting up multiple of angle on each screen row (after intro)
         shl cx, 7   ;     starting at a multiple of the time counter ax
@@ -86,10 +86,8 @@ PreLoopInit:
     .afterIntro:
         test ax, 1
         jz .afterBG
-        inc byte [bgColor]  ; TODO compute bg color from frame counter
-        cmp byte [bgColor], 0x9F
-        jb .afterBG
-        mov byte [bgColor], 0x80
+        inc byte [DrawEmpty + 1] ; update the bg color directly at the mov instruction
+        and byte [DrawEmpty + 1], 0x8F
     .afterBG:
         xor ah, ah
         add al, 96  ; offset sine lookup to align properly after intro
@@ -144,8 +142,7 @@ RowsLoop:
         neg dl
         xor cx, cx ; draw first empty region
         mov cl, dl
-        mov al, byte [bgColor]
-        rep stosb
+        call DrawEmpty
 
         pop dx ; draw two faces, order depending on input angle
         cmp dl, 128
@@ -163,8 +160,7 @@ RowsLoop:
         sub ax, dx
         mov cx, 320
         sub cx, ax
-        mov al, byte [bgColor]
-        rep stosb
+        call DrawEmpty
 
         pop cx
         pop bx
@@ -192,6 +188,11 @@ PlayAX:
         out 42h, al
         mov al, ah
         out 42h, al
+        ret
+
+DrawEmpty:
+        mov al, 0x80
+        rep stosb
         ret
 
 DrawChunkA:
@@ -323,6 +324,5 @@ sineTable:
 frameCounter: dw 0
 musicCounter: db 1
 leftOffset:   db 160
-bgColor:      db 0x80
 ;curFreq:     dw 0
 curFreq       equ 0x9102 ; Point to some memory past the end of the loaded binary
