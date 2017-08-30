@@ -27,7 +27,7 @@ WaitForRetrace:
 
 ;; ===== Update music -- Clobbers: AX, BX, CX, DH, SI
 UpdateMusic:
-        ; assert(bh == 0)
+    ;   assert(bh == 0)
         mov dh, byte [musicCounter]
         mov cx, word [musicPtr]
         dec dh
@@ -140,10 +140,10 @@ RowsLoop:
         mov dl, bh ; get length of left empty region in to dh
         add dl, bl
         shr dl, 1
-        mov dh, byte [leftOffset]
-        sub dh, dl
+        sub dl, byte [leftOffset]
+        neg dl
         xor cx, cx ; draw first empty region
-        mov cl, dh
+        mov cl, dl
         mov al, byte [bgColor]
         rep stosb
 
