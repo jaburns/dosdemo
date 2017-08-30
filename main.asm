@@ -87,7 +87,7 @@ PreLoopInit:
         test ax, 1
         jz .afterBG
         inc byte [DrawEmpty + 1] ; update the bg color directly at the mov instruction
-        and byte [DrawEmpty + 1], 0x8F
+        and byte [DrawEmpty + 1], 0x9F
     .afterBG:
         xor ah, ah
         add al, 96  ; offset sine lookup to align properly after intro
