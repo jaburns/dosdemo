@@ -140,7 +140,7 @@ RowsLoop:
         shr dl, 1
         .varLeftOffset: sub dl, 160
         neg dl
-        xor cx, cx ; draw first empty region
+        xor ch, ch ; draw first empty region
         mov cl, dl
         call DrawEmpty
 
@@ -156,10 +156,9 @@ RowsLoop:
     .drawOrderEnd:
 
         pop dx
-        mov ax, di ; draw more empty space to the right
-        sub ax, dx
         mov cx, 320
-        sub cx, ax
+        sub cx, di
+        add cx, dx
         call DrawEmpty
 
         pop cx
