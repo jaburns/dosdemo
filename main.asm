@@ -206,9 +206,8 @@ DrawChunkB:
 ; DH <- y position of chunk
 ; DL <- palette offset
 DrawColChunk:
-;       inc cl
-        cmp cl, 0
-        jne .notZero
+        or cl, cl
+        jnz .notZero
         ret
     .notZero:
         push ax
