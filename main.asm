@@ -3,7 +3,7 @@ org 0x100
 
 ;; ===== Initialize video and sound
 Init:
-        mov ax, 0x13 ; set up video mode 13h and point ES to vram
+        mov ax, 0x13 ; set up video mode 13h
         int 0x10
         mov ax, 0xA000
         mov es, ax  ; point ES to vram
