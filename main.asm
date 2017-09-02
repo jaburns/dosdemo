@@ -278,13 +278,12 @@ GetSineSmooth:
         call GetSine
         shr al, 1
         or al, 0x80
-        jmp .done
+        ret
     .afterPi:
         call GetSine
         inc al
         neg al
         shr al, 1
-    .done:
         ret
 
 ;; ===========================================================================
