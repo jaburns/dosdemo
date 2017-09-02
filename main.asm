@@ -274,13 +274,14 @@ GetSine:
 ; AL -> sin(theta) : 0->255 map to -1->1
 GetSineSmooth:
         shl al, 1
-        jc .afterPi
+        pushf
         call GetSine
+        popf
+        jc .afterPi
         shr al, 1
         or al, 0x80
         ret
     .afterPi:
-        call GetSine
         inc al
         neg al
         shr al, 1
